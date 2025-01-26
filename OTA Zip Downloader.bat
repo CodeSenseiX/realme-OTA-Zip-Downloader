@@ -155,50 +155,55 @@ call :Link_Generation_Engine "%command%"
 :: Generate JSON using OTAFinder.exe
 set command=%~1
 echo Running OTAFinder with command: %~1
-echo.
 
+:: Execute OTAFinder and generate JSON output
 %command% > temp.json
 
+:: Check for execution errors and handle accordingly
 if %errorlevel% neq 0 (
-    ping 127.0.0.1 -n 1 -w 200 >nul
-echo.
     echo Failed to generate JSON output.
     pause
     del temp.json >nul 2>&1
     goto DownloadMenu
 )
 
-:: Extract manual URL from JSON
+:: Extract manual URL from the generated JSON
 set "rawurl="
 for /f "tokens=3 delims=:," %%A in ('findstr /i "\"manualUrl\"" temp.json') do (
     set rawurl=%%A
 )
+:: Clean up the URL by removing extra characters
 set rawurl=%rawurl:~1%
 set extracted_url=https://%rawurl:~0,-1%
-ping 127.0.0.1 -n 1 -w 200 >nul
-echo.
+
 echo Extracted URL: %extracted_url%
 
-:: Download the extracted URL
-ping 127.0.0.1 -n 1 -w 200 >nul
-echo.
-set /p "user_name=Enter the desired name for the file (without extension): "
-curl "%extracted_url%" --output "%user_name%.zip"
+:: Extract versionName from the generated JSON
+set "version_name="
+for /f "tokens=2 delims=:," %%A in ('findstr /i "\"versionName\"" temp.json') do (
+    set version_name=%%A
+)
+
+:: Prompt the user for a file name (defaults to versionName if left empty)
+set /p "user_name=Enter the desired name for the file (without extension) [Press Enter to use versionName '%version_name%']: "
+if "%user_name%"=="" set user_name=%version_name%
+
+:: Download the extracted URL using curl and handle errors
+curl --progress-bar "%extracted_url%" --output "%user_name%.zip"
 if %errorlevel% neq 0 (
-    ping 127.0.0.1 -n 1 -w 200 >nul
-echo.
     echo Download failed. Please check the URL or try again.
     del temp.json >nul 2>&1
     pause
     goto DownloadMenu
 )
-ping 127.0.0.1 -n 1 -w 200 >nul
-echo.
-echo File "%user_name%.zip" has been downloaded successfully.
 
-:: Clean up temporary files
+:: Successfully downloaded file
+echo File downloaded successfully as %user_name%.zip
+
+:: Clean up temp file after operation
 del temp.json >nul 2>&1
-pause
+
+:: Proceed to next operation
 goto MainMenu
 
 :PredefinedList
