@@ -509,7 +509,7 @@ set version=v5.5
 title OTA Zip Downloader
 call "%~dp0Bin\logo.bat"
 set tool_path="%~dp0Bin\OTAFinder.exe"
-start "" "%~dp0Bin\wn.vbs"
+start "" "%~dp0Bin\greeting_Speak.vbs"
 timeout /t 2 >nul
 goto :EOF
 
