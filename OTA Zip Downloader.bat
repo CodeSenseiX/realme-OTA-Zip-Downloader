@@ -461,7 +461,7 @@ echo.
 call :CenterText "%~2 - %~1"
 
 :: Center-align the "Created By" section
-call :CenterText "Created By: @Parth_Sancheti, @CodeSenseiX"
+call :CenterText "Created By: @CodeSenseiX, @Parth_Sancheti"
 
 echo.
 :: Print the bottom border
@@ -606,9 +606,9 @@ reg add HKEY_CURRENT_USER\Console /v VirtualTerminalLevel /t REG_DWORD /d 1 /f >
 
 mode con: cols=80 lines=30
 color E
-set maintainers=@parth_sancheti;@CodeSenseiX
-set version=v5.5
-title OTA Zip Downloader
+set maintainers=@CodeSenseiX
+set version=v2.2
+title Realme OTA Zip Downloader
 call "%~dp0Bin\logo.bat"
 set tool_path="%~dp0Bin\OTAFinder.exe"
 start "" "%~dp0Bin\greeting_Speak.vbs"
