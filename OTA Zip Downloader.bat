@@ -616,16 +616,20 @@ timeout /t 2 >nul
 goto :EOF
 
 :Personalized_Greeting
-        for /f "tokens=1-2 delims=: " %%a in ('echo %time%') do (
+    for /f "tokens=1-2 delims=: " %%a in ('echo %time%') do (
         set hour=%%a
         set minute=%%b
     )
+    rem Convert hour to a 24-hour format if needed
     if %hour% lss 12 (
         set pg="Good Morning!"
     ) else if %hour% lss 17 (
         set pg="Good Afternoon!"
-    ) else (
+    ) else if %hour% lss 20 (
         set pg="Good Evening!"
+    ) else (
+        set pg="Good Night!"
     )
 goto :EOF
+
 

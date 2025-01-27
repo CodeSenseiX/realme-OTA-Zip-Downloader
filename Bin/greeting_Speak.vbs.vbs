@@ -15,13 +15,15 @@ If hour >= 0 And hour < 12 Then
     greeting = "Good morning!"
 ElseIf hour >= 12 And hour < 18 Then
     greeting = "Good afternoon!"
-Else
+ElseIf hour >= 18 And hour < 22 Then
     greeting = "Good evening!"
+Else
+    greeting = "Good night!"
 End If
 
 ' Define additional welcome message
 Dim speaks
-speaks = "Welcome to the extraordinary CodeSenSeiX World."
+speaks = "Welcome to the extraordinary Code SenSei X World."
 
 ' Use speech to greet the user
 Set Speech = CreateObject("SAPI.SpVoice")
@@ -43,7 +45,7 @@ If Speech.Voice Is Nothing Then
 End If
 
 ' Speak the greeting and welcome message
-Speech.Speak greeting & " Welcome to the realme OTA Zip Downloader."
+Speech.Speak greeting & " Welcome to the real me OTA Zip Downloader."
 Speech.Speak speaks
 
 ' Log or perform any other actions (like running commands)
