@@ -39,36 +39,35 @@ echo "In Download Menu"  :: Debugging line
 call :Header "Download OTA Package" %pg%
 echo.
 
-:: Display options
+:: Prompt for user input
 echo    1. I Already Have A Link
 ping 127.0.0.1 -n 1 -w 100 >nul
 echo.
-echo    2. Generate A Custom Link and Download
+echo    2. Enter Device Model and Download
 ping 127.0.0.1 -n 1 -w 100 >nul
 echo.
 echo    3. Select From Predefined List(Realme12Pro+)
 ping 127.0.0.1 -n 1 -w 100 >nul
 echo.
-echo    4. Go Back
+echo    4. Download Chinese FULL OTA
 ping 127.0.0.1 -n 1 -w 100 >nul
 echo.
+echo    5. Go Back
+echo.
 
-
-:: Prompt for user input
-set /p "choice=Select an option (1-4): "
+set /p "choice=Select an option (1-5): "
 
 if "%choice%" == "1" goto IAlreadyHaveALink
 if "%choice%" == "2" goto GenerateCustomLinkAndDownload
 if "%choice%" == "3" goto PredefinedList
-if "%choice%" == "4" goto MainMenu
+if "%choice%" == "4" goto DownloadChineseOTA
+if "%choice%" == "5" goto MainMenu
 
 call :Error_Handling DownloadMenu
 
 :: Download with Link
 :IAlreadyHaveALink
 call :Header "Download With Link" %pg%
-echo User URL: %user_url%
-echo File Name: %user_name%
 echo.
 set /p "user_url=Enter the URL to download the file: "
 if "%user_url%"=="" ( 
@@ -78,26 +77,44 @@ if "%user_url%"=="" (
     goto DownloadMenu
 )
 echo.
-set /p "user_name=Enter the desired name for the file (without extension): "
-if "%user_name%"=="" (
+set /p "file_name=Enter the desired name for the file (without extension): "
+if "%file_name%"=="" (
     echo Invalid file name. Please try again.
     ping 127.0.0.1 -n 1 -w 100 >nul
     timeout /t 2 >nul
     goto DownloadMenu
 )
-curl --progress-bar "%extracted_url%" --output "%user_name%.zip"
+
+:: Get the user's Downloads folder using environment variables
+set "downloads_folder=%USERPROFILE%\Downloads"
+
+:: Ensure the path exists
+if not exist "%downloads_folder%" (
+    echo [Error] Unable to locate the Downloads folder. Using current directory instead.
+    set "downloads_folder=%CD%"
+)
+
+:: Construct the OTA download path inside the Windows Downloads folder
+set "download_path=%downloads_folder%\%file_name%.zip"
+echo.
+
+:: Download the extracted URL using curl and handle errors
+:: Check if a partial download exists
+if exist "%download_path%" (
+    echo Resuming previous download...
+    curl -C - --progress-bar -o "%download_path%" "%extracted_url%"
+) else (
+    echo Starting new download...
+    curl -C - --progress-bar -o "%download_path%" "%extracted_url%"
+)
+
 if errorlevel 1 (
     echo Download failed. Check your internet connection or URL.
     pause
     goto DownloadMenu
 )
 echo.
-echo File "%user_name%.zip" has been downloaded successfully.
-timeout /t 1 >nul
-ping 127.0.0.1 -n 1 -w 100 >nul
-echo.
-echo Opening File Location
-start .
+echo File "%download_path%.zip" has been downloaded successfully.
 timeout /t 1 >nul
 goto MainMenu
 
@@ -130,8 +147,8 @@ echo.
 ping 127.0.0.1 -n 1 -w 200 >nul
 echo.
 :: Device Codename Prompt
-set /p "device_codename=Enter your device codename number (e.g., RMX3840): "
-if "%device_codename%"=="" (
+set /p "product_model=Enter your device codename number (e.g., RMX3840): "
+if "%product_model%"=="" (
     echo Invalid device codename. Please try again.
     timeout /t 2 >nul
     goto GenerateCustomLinkAndDownload
@@ -141,17 +158,18 @@ echo.
 
 :: OTA Version Prompt with Selection
 echo Select the OTA version for your device:
-echo 1. 11.A.00_0000 (Android 14)
-echo 2. 11.C.00_0000 (Android 15)
+echo 1. 11.A.00 (Android 12, 13, 14)
+echo 2. 11.C.00 (Android 15)
 echo 3. Enter OTA Version Manually
+echo.
 set /p "ota_version_choice=Enter your choice (1, 2, or 3): "
-
+echo.
 if "%ota_version_choice%"=="1" (
-    set "ota_version=11.A.00_0000"
+    set "ota_version=11.A.00"
 ) else if "%ota_version_choice%"=="2" (
-    set "ota_version=11.C.00_0000"
+    set "ota_version=11.C.00"
 ) else if "%ota_version_choice%"=="3" (
-    set /p "ota_version=Enter the OS version manually (e.g., 11.B.00): "
+    set /p "ota_version=Enter the OS version manually (e.g., 11.A.00): "
     if "%ota_version%"=="" (
         echo Invalid OS version. Please try again.
         timeout /t 2 >nul
@@ -198,36 +216,47 @@ echo 10.   Philippines (PH)
 echo 11.   Taiwan (TW)
 echo 12.   Indonesia (ID)
 echo 13.   Malaysia (MY)
-
+echo.
 set /p "custom_choice=Select a country to download for (1-13): "
+echo.
 goto :MapCustomChoice
 
 :: Ensure that only one of the links (custom_link or predefined_link) is set at a time
 :MapCustomChoice
 set "command="
 set "custom_link="
+if defined custom_link (
+    echo Clearing previous custom link...
+    set "custom_link="
+)
 
-:: First, clear predefined_link to avoid conflict
+:: Clear the predefined_link to avoid conflict
+set predefined_link=
+
+:: Check if predefined_link is defined, if it is, warn the user and go to DownloadMenu
 if defined predefined_link (
     echo A predefined link has already been selected. You cannot set a custom link now.
     timeout /t 2 >nul
     goto DownloadMenu
 )
 
+:: Now proceed with setting the custom link if predefined_link is not defined
+:: Add your custom link logic here...
+
 :: Generate custom link based on the country choice and device parameters
-if "%custom_choice%"=="1" set "custom_link=%tool_path% %device_codename%TR %device_codename%NV51_%ota_version%_000000000000 %realmeui_version% 01010001 -r 0"
-if "%custom_choice%"=="2" set "custom_link=%tool_path% %device_codename%RU %device_codename%NV37_%ota_version%_000000000000 %realmeui_version% 00110111 -r 3"
-if "%custom_choice%"=="3" set "custom_link=%tool_path% %device_codename% %device_codename%NVA6_%ota_version%_000000000000 %realmeui_version% 01110110 -r 3"
-if "%custom_choice%"=="4" set "custom_link=%tool_path% %device_codename% %device_codename%NV83_%ota_version%_000000000000 %realmeui_version% 10000011 -r 3"
-if "%custom_choice%"=="5" set "custom_link=%tool_path% %device_codename%IN %device_codename%NV1B_%ota_version%_000000000000 %realmeui_version% 00011011 -r 3"
-if "%custom_choice%"=="6" set "custom_link=%tool_path% %device_codename%EEA %device_codename%NV44_%ota_version%_000000000000 %realmeui_version% 01000100 -r 2"
-if "%custom_choice%"=="7" set "custom_link=%tool_path% %device_codename% %device_codename%NV39_%ota_version%_000000000000 %realmeui_version% 00111001 -r 3"
-if "%custom_choice%"=="8" set "custom_link=%tool_path% %device_codename% %device_codename%NV9A_%ota_version%_000000000000 %realmeui_version% 10011010 -r 3"
-if "%custom_choice%"=="9" set "custom_link=%tool_path% %device_codename% %device_codename%NV9E_%ota_version%_000000000000 %realmeui_version% 10011110 -r 3"
-if "%custom_choice%"=="10" set "custom_link=%tool_path% %device_codename% %device_codename%NV3E_%ota_version%_000000000000 %realmeui_version% 10011110 -r 2"
-if "%custom_choice%"=="11" set "custom_link=%tool_path% %device_codename% %device_codename%NV1A_%ota_version%_000000000000 %realmeui_version% 10011110 -r 2"
-if "%custom_choice%"=="12" set "custom_link=%tool_path% %device_codename% %device_codename%NV33_%ota_version%_000000000000 %realmeui_version% 10011110 -r 2"
-if "%custom_choice%"=="13" set "custom_link=%tool_path% %device_codename% %device_codename%NV38_%ota_version%_000000000000 %realmeui_version% 10011110 -r 2"
+if "%custom_choice%"=="1" set "custom_link=%tool_path% %product_model%TR %product_model%NV51_%ota_version%_000_000000000000 %realmeui_version% 01010001 -r 0"
+if "%custom_choice%"=="2" set "custom_link=%tool_path% %product_model%RU %product_model%NV37_%ota_version%_000_000000000000 %realmeui_version% 00110111 -r 3"
+if "%custom_choice%"=="3" set "custom_link=%tool_path% %product_model% %product_model%NVA6_%ota_version%_000_000000000000 %realmeui_version% 01110110 -r 3"
+if "%custom_choice%"=="4" set "custom_link=%tool_path% %product_model% %product_model%NV83_%ota_version%_000_000000000000 %realmeui_version% 10000011 -r 3"
+if "%custom_choice%"=="5" set "custom_link=%tool_path% %product_model%IN %product_model%NV1B_%ota_version%_000_000000000000 %realmeui_version% 00011011 -r 3"
+if "%custom_choice%"=="6" set "custom_link=%tool_path% %product_model%EEA %product_model%NV44_%ota_version%_000_000000000000 %realmeui_version% 01000100 -r 2"
+if "%custom_choice%"=="7" set "custom_link=%tool_path% %product_model% %product_model%NV39_%ota_version%_000_000000000000 %realmeui_version% 00111001 -r 3"
+if "%custom_choice%"=="8" set "custom_link=%tool_path% %product_model% %product_model%NV9A_%ota_version%_000_000000000000 %realmeui_version% 10011010 -r 3"
+if "%custom_choice%"=="9" set "custom_link=%tool_path% %product_model% %product_model%NV9E_%ota_version%_000_000000000000 %realmeui_version% 10011110 -r 3"
+if "%custom_choice%"=="10" set "custom_link=%tool_path% %product_model% %product_model%NV3E_%ota_version%_000_000000000000 %realmeui_version% 10011110 -r 2"
+if "%custom_choice%"=="11" set "custom_link=%tool_path% %product_model% %product_model%NV1A_%ota_version%_000_000000000000 %realmeui_version% 10011110 -r 2"
+if "%custom_choice%"=="12" set "custom_link=%tool_path% %product_model% %product_model%NV33_%ota_version%_000_000000000000 %realmeui_version% 10011110 -r 2"
+if "%custom_choice%"=="13" set "custom_link=%tool_path% %product_model% %product_model%NV38_%ota_version%_000_000000000000 %realmeui_version% 10011110 -r 2"
 
 :: Only allow one link to be generated at a time
 if defined custom_link (
@@ -249,46 +278,49 @@ if defined custom_link (
     goto DownloadMenu
 )
 
-
 :: Map predefined choices to respective links
-if "%~1"=="1" set "predefined_link=%tool_path% RMX3840TR RMX3840NV51_11.A.00_0000_000000000000 5 01010001 -r 0"
-if "%~1"=="2" set "predefined_link=%tool_path% RMX3840RU RMX3840NV37_11.A.00_0000_000000000000 5 00110111 -r 3"
-if "%~1"=="3" set "predefined_link=%tool_path% RMX3840 RMX3840NVA6_11.A.00_0000_000000000000 5 01110110 -r 2"
-if "%~1"=="4" set "predefined_link=%tool_path% RMX3840 RMX3840NV83_11.A.00_0000_000000000000 5 10000011 -r 3"
-if "%~1"=="5" set "predefined_link=%tool_path% RMX3840IN RMX3840NV1B_11.A.00_0000_000000000000 5 00011011 -r 3"
-if "%~1"=="6" set "predefined_link=%tool_path% RMX3840EU RMX3840NV44_11.A.00_0000_000000000000 5 01000100 -r 2"
+if "%~1"=="1" set "predefined_link=%tool_path% RMX3840TR RMX3840NV51_11.A.00_000_000000000000 5 01010001 -r 0"
+if "%~1"=="2" set "predefined_link=%tool_path% RMX3840RU RMX3840NV37_11.A.00_000_000000000000 5 00110111 -r 3"
+if "%~1"=="3" set "predefined_link=%tool_path% RMX3840 RMX3840NVA6_11.A.00_000_000000000000 5 01110110 -r 2"
+if "%~1"=="4" set "predefined_link=%tool_path% RMX3840 RMX3840NV83_11.A.00_000_000000000000 5 10000011 -r 3"
+if "%~1"=="5" set "predefined_link=%tool_path% RMX3840IN RMX3840NV1B_11.A.00_000_000000000000 5 00011011 -r 3"
+if "%~1"=="6" set "predefined_link=%tool_path% RMX3840EEA RMX3840NV44_11.A.00_000_000000000000 5 01000100 -r 2"
 if "%~1"=="7" set "predefined_link=%tool_path% RMX3840 RMX3840NV39_11.A.00_0000_000000000000 5 00111001 -r 3"
-if "%~1"=="8" set "predefined_link=%tool_path% RMX3840 RMX3840NV9A_11.A.00_0000_000000000000 5 10011010 -r 3"
-if "%~1"=="9" set "predefined_link=%tool_path% RMX3840 RMX3840NV9E_11.A.00_0000_000000000000 5 10011110 -r 3"
-if "%~1"=="10" set "predefined_link=%tool_path% RMX3840 RMX3840NV3E_11.A.00_0000_000000000000 5 10011110 -r 2"
-if "%~1"=="11" set "predefined_link=%tool_path% RMX3840 RMX3840NV1A_11.A.00_0000_000000000000 5 10011110 -r 2"
-if "%~1"=="12" set "predefined_link=%tool_path% RMX3840 RMX3840NV33_11.A.00_0000_000000000000 5 10011110 -r 2"
-if "%~1"=="13" set "predefined_link=%tool_path% RMX3840 RMX3840NV38_11.A.00_0000_000000000000 5 10011110 -r 2"
-if "%~1"=="14" set "predefined_link=%tool_path% RMX3840TR RMX3840NV51_11.C.00_0000_000000000000 5 01010001 -r 0"
-if "%~1"=="15" set "predefined_link=%tool_path% RMX3840RU RMX3840NV37_11.C.00_0000_000000000000 5 00110111 -r 3"
-if "%~1"=="16" set "predefined_link=%tool_path% RMX3840 RMX3840NVA6_11.C.00_0000_000000000000 5 10100110 -r 3"
-if "%~1"=="17" set "predefined_link=%tool_path% RMX3840 RMX3840NV83_11.C.00_0000_000000000000 5 10000011 -r 3"
-if "%~1"=="18" set "predefined_link=%tool_path% RMX3840IN RMX3840NV1B_11.C.00_0000_000000000000 5 00011011 -r 3"
-if "%~1"=="19" set "predefined_link=%tool_path% RMX3840EU RMX3840NV44_11.C.00_0000_000000000000 5 01000100 -r 2"
-if "%~1"=="20" set "predefined_link=%tool_path% RMX3840 RMX3840NV39_11.C.00_0000_000000000000 5 00111001 -r 3"
-if "%~1"=="21" set "predefined_link=%tool_path% RMX3840 RMX3840NV9A_11.C.00_0000_000000000000 5 10011010 -r 3"
-if "%~1"=="22" set "predefined_link=%tool_path% RMX3840 RMX3840NV9E_11.C.00_0000_000000000000 5 10011110 -r 3"
-if "%~1"=="23" set "predefined_link=%tool_path% RMX3840 RMX3840NV3E_11.C.00_0000_000000000000 5 10011110 -r 2"
-if "%~1"=="24" set "predefined_link=%tool_path% RMX3840 RMX3840NV1A_11.C.00_0000_000000000000 5 10011110 -r 2"
-if "%~1"=="25" set "predefined_link=%tool_path% RMX3840 RMX3840NV33_11.C.00_0000_000000000000 5 10011110 -r 2"
-if "%~1"=="26" set "predefined_link=%tool_path% RMX3840 RMX3840NV38_11.C.00_0000_000000000000 5 10011110 -r 2"
+if "%~1"=="8" set "predefined_link=%tool_path% RMX3840 RMX3840NV9A_11.A.00_000_000000000000 5 10011010 -r 3"
+if "%~1"=="9" set "predefined_link=%tool_path% RMX3840 RMX3840NV9E_11.A.00_000_000000000000 5 10011110 -r 3"
+if "%~1"=="10" set "predefined_link=%tool_path% RMX3840 RMX3840NV3E_11.A.00_000_000000000000 5 10011110 -r 2"
+if "%~1"=="11" set "predefined_link=%tool_path% RMX3840 RMX3840NV1A_11.A.00_000_000000000000 5 10011110 -r 2"
+if "%~1"=="12" set "predefined_link=%tool_path% RMX3840 RMX3840NV33_11.A.00_000_000000000000 5 10011110 -r 2"
+if "%~1"=="13" set "predefined_link=%tool_path% RMX3840 RMX3840NV38_11.A.00_000_000000000000 5 10011110 -r 2"
+if "%~1"=="14" set "predefined_link=%tool_path% RMX3840TR RMX3840NV51_11.C.00_000_000000000000 5 01010001 -r 0"
+if "%~1"=="15" set "predefined_link=%tool_path% RMX3840RU RMX3840NV37_11.C.00_000_000000000000 5 00110111 -r 3"
+if "%~1"=="16" set "predefined_link=%tool_path% RMX3840 RMX3840NVA6_11.C.00_000_000000000000 5 10100110 -r 3"
+if "%~1"=="17" set "predefined_link=%tool_path% RMX3840 RMX3840NV83_11.C.00_000_000000000000 5 10000011 -r 3"
+if "%~1"=="18" set "predefined_link=%tool_path% RMX3840IN RMX3840NV1B_11.C.00_000_000000000000 5 00011011 -r 3"
+if "%~1"=="19" set "predefined_link=%tool_path% RMX3840EEA RMX3840NV44_11.C.00_000_000000000000 5 01000100 -r 2"
+if "%~1"=="20" set "predefined_link=%tool_path% RMX3840 RMX3840NV39_11.C.00_000_000000000000 5 00111001 -r 3"
+if "%~1"=="21" set "predefined_link=%tool_path% RMX3840 RMX3840NV9A_11.C.00_000_000000000000 5 10011010 -r 3"
+if "%~1"=="22" set "predefined_link=%tool_path% RMX3840 RMX3840NV9E_11.C.00_000_000000000000 5 10011110 -r 3"
+if "%~1"=="23" set "predefined_link=%tool_path% RMX3840 RMX3840NV3E_11.C.00_000_000000000000 5 10011110 -r 2"
+if "%~1"=="24" set "predefined_link=%tool_path% RMX3840 RMX3840NV1A_11.C.00_000_000000000000 5 10011110 -r 2"
+if "%~1"=="25" set "predefined_link=%tool_path% RMX3840 RMX3840NV33_11.C.00_000_000000000000 5 10011110 -r 2"
+if "%~1"=="26" set "predefined_link=%tool_path% RMX3840 RMX3840NV38_11.C.00_000_000000000000 5 10011110 -r 2"
 
 :: Pass predefined link to the download engine
 call :Link_Generation_Engine "%predefined_link%"
 goto :EOF
 
+:: ========================================
+:: Function: Link_Generation_Engine
+:: Description: Executes OTAFinder, processes JSON output, and handles the download.
+:: ========================================
+
 :Link_Generation_Engine
 :: Generate JSON using OTAFinder.exe
 set command=%~1
-echo Running OTAFinder with command: %~1
 
 :: Execute OTAFinder and generate JSON output
-%command% > temp.json
+    %command% > temp.json
 
 :: Check for execution errors and handle accordingly
 if %errorlevel% neq 0 (
@@ -298,29 +330,82 @@ if %errorlevel% neq 0 (
     goto DownloadMenu
 )
 
-:: Extract manual URL from the generated JSON
+:: ========================================
+:: Extract Manual URL from the generated JSON
+:: ========================================
 set "rawurl="
 for /f "tokens=3 delims=:," %%A in ('findstr /i "\"manualUrl\"" temp.json') do (
     set rawurl=%%A
 )
+
 :: Clean up the URL by removing extra characters
-set rawurl=%rawurl:~1%
-set extracted_url=https://%rawurl:~0,-1%
+set "rawurl=%rawurl:~1%"
+set "extracted_url=https://%rawurl:~0,-1%"
 
 echo Extracted URL: %extracted_url%
 
-:: Extract versionName from the generated JSON
+:: ========================================
+:: Extract Asset ID (aid) from the generated JSON
+:: ========================================
+set "aid="
+for /f "tokens=2 delims=:," %%A in ('findstr /i "\"aid\"" temp.json') do (
+    set aid=%%A
+)
+
+:: Clean up the aid value by removing any quotes or extra spaces
+set "aid=%aid:"=%"
+set "aid=%aid: =%"
+
+:: If aid is not found, set it to empty
+if not defined aid (
+    set "aid="
+)
+
+echo Asset ID: %aid%
+
+:: ========================================
+:: Extract Version Name from the generated JSON
+:: ========================================
 set "version_name="
 for /f "tokens=2 delims=:," %%A in ('findstr /i "\"versionName\"" temp.json') do (
     set version_name=%%A
 )
 
-:: Prompt the user for a file name (defaults to versionName if left empty)
-set /p "user_name=Enter the desired name for the file (without extension) [Press Enter to use versionName '%version_name%']: "
-if "%user_name%"=="" set user_name=%version_name%
+:: Clean up version_name (remove leading/trailing spaces or quotes)
+set "version_name=%version_name:~1%"
+set "version_name=%version_name:~0,-1%"
+
+:: If version_name is not found, set it to empty
+if not defined version_name (
+    set "version_name="
+)
+
+echo Version Name: %version_name%
+echo.
+
+:: Get the user's Downloads folder using environment variables
+set "downloads_folder=%USERPROFILE%\Downloads"
+
+:: Ensure the path exists
+if not exist "%downloads_folder%" (
+    echo [Error] Unable to locate the Downloads folder. Using current directory instead.
+    set "downloads_folder=%CD%"
+)
+
+:: Construct the OTA download path inside the Windows Downloads folder
+set "download_path=%downloads_folder%\%aid%.zip"
+
 
 :: Download the extracted URL using curl and handle errors
-curl --progress-bar "%extracted_url%" --output "%user_name%.zip"
+:: Check if a partial download exists
+if exist "%download_path%" (
+    echo Resuming previous download...
+    curl -C - --progress-bar -o "%download_path%" "%extracted_url%"
+) else (
+    echo Starting new download...
+    curl -C - --progress-bar -o "%download_path%" "%extracted_url%"
+)
+
 if %errorlevel% neq 0 (
     echo Download failed. Please check the URL or try again.
     del temp.json >nul 2>&1
@@ -329,7 +414,7 @@ if %errorlevel% neq 0 (
 )
 
 :: Successfully downloaded file
-echo File downloaded successfully as %user_name%.zip
+echo Download complete. File saved as "%download_path%"
 
 :: Clean up temp file after operation
 del temp.json >nul 2>&1
@@ -363,12 +448,14 @@ echo 10. RMX3840 PH                  23. RMX3840 PH
 echo 11. RMX3840 TW                  24. RMX3840 TW
 ping 127.0.0.1 -n 1 -w 200 >nul
 echo 12. RMX3840 ID                  25. RMX3840 ID
-echo 13. RMX3840 MY                  27. RMX3840 MY
+echo 13. RMX3840 MY                  26. RMX3840 MY
+ping 127.0.0.1 -n 1 -w 200 >nul
 echo.
 echo ==============================================================================
 ping 127.0.0.1 -n 1 -w 200 >nul
 echo.
-set /p "choice=Enter your choice (1-28): "
+set /p "choice=Enter your choice (1-26): "
+echo.
 if "%choice%"=="" (
     ping 127.0.0.1 -n 1 -w 200 >nul
     echo Invalid choice. Please try again.
@@ -387,16 +474,198 @@ if "%predefined_link%"=="" (
 call :Link_Generation_Engine "%predefined_link%"
 goto MainMenu
 
+:DownloadChineseOTA
+call :Header "Download Chinese OTA"
+echo You have selected to download the Chinese FULL OTA.
+echo.
+
+:: Prompt for device codename
+set /p "product_model=Enter your device codename (e.g., RMX3841): "
+if "%product_model%"=="" (
+    echo [Error] Invalid device codename. Please try again.
+    timeout /t 2 >nul
+    goto DownloadChineseOTA
+)
+echo.
+
+:: OTA Version Selection
+echo Select the OTA version for your device:
+echo 1. 11.A.00 (Android 12, 13, 14)
+echo 2. 11.C.00 (Android 15)
+echo 3. Enter OTA Version Manually
+echo.
+set /p "ota_version_choice=Enter your choice (1, 2, or 3): "
+echo.
+
+:: Determine OTA Version
+if "%ota_version_choice%"=="1" (
+    set "ota_version=11.A.00"
+) else if "%ota_version_choice%"=="2" (
+    set "ota_version=11.C.00"
+) else if "%ota_version_choice%"=="3" (
+    set /p "ota_version=Enter the OS version manually (e.g., 11.A.00): "
+    if "%ota_version%"=="" (
+        echo [Error] Invalid OS version. Please try again.
+        timeout /t 2 >nul
+        goto DownloadChineseOTA
+    )
+) else (
+    echo [Error] Invalid choice. Please select 1, 2, or 3.
+    timeout /t 2 >nul
+    goto DownloadChineseOTA
+)
+
+:: Realme UI Version Prompt
+set /p "realmeui_version=Enter your Realme UI version (e.g., 1, 2, 3, 4, 5, 6): "
+if "%realmeui_version%"=="6" set "realmeui_version=5"  :: Convert 6 to 5 automatically
+
+:: Validate Realme UI version
+if "%realmeui_version%"=="" (
+    echo [Error] Invalid Realme UI version. Please try again.
+    timeout /t 2 >nul
+    goto DownloadChineseOTA
+)
+echo.
+
+:: Construct the command to generate JSON
+set "china_link=%tool_path% %product_model% %product_model%NV97_%ota_version%_000_000000000000 %realmeui_version% -v0 -r 1 -d china.json"
+
+:: Run the command silently
+%china_link% >nul 2>&1
+
+:: Simulate processing time
+timeout /t 7 >nul
+
+:: Check if the JSON file was created
+if not exist china.json (
+    echo [Error] Failed to create china.json. Please check the command parameters.
+    pause
+    goto DownloadMenu
+)
+
+:: ===================== Properly Extract & Clean URL =====================
+set "china_url="
+for /f "tokens=3 delims=:," %%A in ('findstr /i "\"manualUrl\"" china.json') do (
+    set "china_url=%%A"
+)
+
+:: Trim spaces and remove extra characters
+set "china_url=%china_url: =%"
+set "china_url=%china_url:~1,-1%"
+
+:: Ensure the extracted URL starts correctly with "https://"
+if not "%china_url:~0,8%"=="https://" (
+    set "china_url=https://%china_url%"
+)
+
+:: Remove extra forward slashes if present in "https:///"
+set "china_url=%china_url:https:///=https://%"
+
+:: Validate extracted URL
+if "%china_url%"=="" (
+    echo [Error] Failed to extract the OTA download URL. Please try again.
+    del china.json >nul 2>&1
+    pause
+    goto DownloadMenu
+)
+
+echo Extracted Download URL: %china_url%
+echo.
+:: ===================== Extract Asset ID (aid) for NV97_11.X Only =======================
+set "aid="
+
+:: Loop through JSON and extract only `aid` values containing "NV97_11."
+for /f "tokens=2 delims=:," %%A in ('findstr /i "\"aid\"" china.json') do (
+    set "temp_aid=%%A"
+    set "temp_aid=!temp_aid:"=!"  :: Remove quotes
+    set "temp_aid=!temp_aid: =!"  :: Remove spaces
+
+    :: Check if extracted aid contains "NV97_11."
+    echo !temp_aid! | findstr /I "NV97_11." >nul
+    if not errorlevel 1 (
+        for /f "tokens=2 delims=_" %%B in ("!temp_aid!") do (
+            set "aid=NV97_%%B"
+        )
+    )
+)
+
+:: If aid is still empty, notify the user
+if not defined aid (
+    echo [Error] No matching Asset ID found for NV97_11.X.
+    set "aid=Not Found"
+)
+
+echo Extracted Asset ID: %aid%
+
+:: ===================== Extract versionName =====================
+set "version_name="
+for /f "tokens=2 delims=:," %%A in ('findstr /i "\"versionName\"" china.json') do (
+    set "version_name=%%A"
+)
+
+:: Cleanup version name
+set "version_name=%version_name:"=%"
+set "version_name=%version_name: =%"
+
+:: Default version name if extraction fails
+if not defined version_name (
+    set "version_name=Unknown_Version"
+)
+
+:: Show extracted version name
+echo OTA Version Name: %version_name%
+echo.
+
+:: Get the user's Downloads folder using environment variables
+set "downloads_folder=%USERPROFILE%\Downloads"
+
+:: Ensure the path exists
+if not exist "%downloads_folder%" (
+    echo [Error] Unable to locate the Downloads folder. Using current directory instead.
+    set "downloads_folder=%CD%"
+)
+
+:: Construct the OTA download path inside the Windows Downloads folder
+set "ota_path=%downloads_folder%\%version_name%%aid%.zip"
+
+:: ===================== Start OTA Download with Resume Support =====================
+if exist "%ota_path%" (
+    echo [INFO] Resuming previous download...
+    curl -C - --progress-bar -o "%ota_path%" "%china_url%"
+) else (
+    echo [INFO] Starting new download...
+    curl --progress-bar -o "%ota_path%" "%china_url%"
+)
+
+:: Check if download was successful
+if %errorlevel% neq 0 (
+    echo [Error] Download failed. Please check your internet connection or the provided URL.
+    pause
+    goto DownloadMenu
+)
+
+:: Confirm successful download
+echo Download completed successfully. File saved in: "%ota_path%"
+
+:: Log the download
+echo [%date% %time%] Downloaded %version_name%.zip to %ota_path% from %china_url% >> download_log.txt
+
+:: Open Downloads folder after successful download
+start "" "%downloads_folder%"
+
+:: Return to main menu
+goto MainMenu
+
 
 :GetHelp
 call :Header "Get Help" %pg%
 echo.
 echo Who would you like to contact?
 echo.
-echo    1. Contact @parth_sancheti
+echo    1. Contact @CodeSenseiX
 ping 127.0.0.1 -n 1 -w 200 >nul
 echo.
-echo    2. Contact @CodeSenseiX
+echo    2. Contact @parth_sancheti
 ping 127.0.0.1 -n 1 -w 200 >nul
 echo.
 echo    3. Need Help Regarding device info
@@ -406,17 +675,15 @@ echo    4. Go Back
 ping 127.0.0.1 -n 1 -w 200 >nul
 echo.
 set /p "choice=Select an option (1-3): "
-if "%choice%" == "1" start https://t.me/parth_sancheti & goto MainMenu
-if "%choice%" == "2" start https://t.me/CodeSenseiX & goto MainMenu
+if "%choice%" == "1" start https://t.me/CodeSenseiX & goto MainMenu
+if "%choice%" == "2" start https://t.me/parth_sancheti & goto MainMenu
 if "%choice%" == "3" start https://t.me/RealmeInfoBot & goto MainMenu
 if "%choice%" == "4" goto MainMenu
 
 call :Error_Handling GetHelp
 
 :About
-call :Header "About OTA Zip Downloader" %pg%
-echo.
-echo.                                                         
+call :Header "About OTA Zip Downloader" %pg%                                                       
 echo.                                  
 echo  Tool Name   : OTA Zip Downloader
 echo.                                         
@@ -461,7 +728,7 @@ echo.
 call :CenterText "%~2 - %~1"
 
 :: Center-align the "Created By" section
-call :CenterText "Created By: @CodeSenseiX, @Parth_Sancheti"
+call :CenterText "Created By: @CodeSenseiX"
 
 echo.
 :: Print the bottom border
@@ -513,27 +780,6 @@ echo Please ensure you've selected a valid option.
 echo Redirecting...
 timeout /t 1 >nul
 goto %1
-
-:GetHelp
-call :Header "Get Help" %pg%
-echo.
-echo Who would you like to contact?
-echo.
-echo    1. Contact @parth_sancheti
-ping 127.0.0.1 -n 1 -w 200 >nul
-echo.
-echo    2. Contact @CodeSenseiX
-ping 127.0.0.1 -n 1 -w 200 >nul
-echo.
-echo    3. Go Back
-ping 127.0.0.1 -n 1 -w 200 >nul
-echo.
-set /p "choice=Select an option (1-3): "
-if "%choice%" == "1" start https://t.me/parth_sancheti & goto MainMenu
-if "%choice%" == "2" start https://t.me/CodeSenseiX & goto MainMenu
-if "%choice%" == "3" goto MainMenu
-
-call :Error_Handling GetHelp
 
 :About
 call :Header "About OTA Zip Downloader" %pg%
@@ -607,7 +853,7 @@ reg add HKEY_CURRENT_USER\Console /v VirtualTerminalLevel /t REG_DWORD /d 1 /f >
 mode con: cols=80 lines=30
 color E
 set maintainers=@CodeSenseiX
-set version=v2.2
+set version=v2.4
 title Realme OTA Zip Downloader
 call "%~dp0Bin\logo.bat"
 set tool_path="%~dp0Bin\OTAFinder.exe"
